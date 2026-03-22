@@ -21,8 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stm32f4xx_hal_def.h"
-#include "stm32f4xx_hal_i2c.h"
+#include "bsp_i2c.h"
+#include "sht31.h"
+#include "sht31_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,7 +45,8 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
-
+static sht31_ctx_t sht31;
+static sht31_measurement_t measurement;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -91,9 +93,18 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_StatusTypeDef result = HAL_I2C_IsDeviceReady(&hi2c1, (0x44 << 1), 10, 1000);
-  (void)result; //suspend unused error
-  
+  bsp_i2c_set_handle(&hi2c1);
+
+  const sht31_io_t io = { 
+      .i2c_write       = bsp_i2c_write,
+      .i2c_read        = bsp_i2c_read,
+      .is_device_ready = bsp_i2c_is_device_ready,
+      .delay_ms        = bsp_i2c_delay_ms,
+  };
+
+  if (sht31_init(&sht31, &io, 0x44U) != SHT31_OK) {
+      Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -103,6 +114,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    const sht31_singleshot_cfg_t cfg = {
+        .repeatability   = SHT31_REPEATABILITY_HIGH,
+        .clock_stretching = false,
+    };
+
+    sht31_status_t status = sht31_single_shot(&sht31, &cfg, &measurement);
+    if (status == SHT31_OK) {
+        (void)measurement;
+    }
+
+    HAL_Delay(1000U);
   }
   /* USER CODE END 3 */
 }
